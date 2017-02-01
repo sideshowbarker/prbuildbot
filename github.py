@@ -44,6 +44,8 @@ class GitHub(object):
 
     """Interface to GitHub API."""
 
+    max_comment_length = 65536
+
     def __init__(self):
         """Create GitHub instance."""
         self.headers = {"Accept": "application/vnd.github.v3+json"}
@@ -99,17 +101,32 @@ class GitHub(object):
         resp.raise_for_status()
         return resp
 
-    def post_comment(self, issue_number, body, title):
+    def post_comment(self, issue_number, body, title, full_log_url=None):
         """Create or update comment in pull request comment section."""
         user = self.get(urljoin(self.base_url, "/user")).json()
         issue_comments_url = urljoin(self.base_url,
                                      "issues/%s/comments" % issue_number)
         comments = self.get(issue_comments_url).json()
         title_line = format_comment_title(title)
+
+        if len(body) > self.max_comment_length:
+            link = ''
+
+            if full_log_url is not None:
+                link = ' [The complete log is available here.](%s)' % full_log_url
+
+            truncation_msg = ('*This report has been truncated because the ' +
+                'total content is %s characters in length, which is in ' +
+                'excess of GitHub.com\'s limit for comments (%s characters).' +
+                '%s*\n\n') % (len(body), self.max_comment_length, link)
+
+            body = truncation_msg + \
+                body[0:self.max_comment_length - len(truncation_msg)]
+
         data = {"body": body}
         for comment in comments:
             if (comment["user"]["login"] == user["login"] and
-                    comment["body"].startswith(title_line)):
+                    title_line in comment["body"]):
                 comment_url = urljoin(self.base_url,
                                       "issues/comments/%s" % comment["id"])
                 self.patch(comment_url, data)
