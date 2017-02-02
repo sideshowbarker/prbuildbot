@@ -15,7 +15,7 @@ from OpenSSL.crypto import Error as SignatureError
 
 CONFIG = ConfigParser.ConfigParser()
 CONFIG.readfp(open(r'config.txt'))
-TRAVIS_URL = CONFIG.get('Travis', 'TRAVIS_URL')
+TRAVIS_DOMAIN = CONFIG.get('Travis', 'TRAVIS_DOMAIN')
 COMMENT_ENV_VAR = CONFIG.get('Travis', 'COMMENT_ENV_VAR')
 
 
@@ -31,9 +31,14 @@ class Travis(object):
 
     """Interface to Travis API."""
 
+    @statimethod
+    def job_url(org_name, repo_name, job_id):
+        return 'https://%s/%s/%s/jobs/%s' % (
+                TRAVIS_DOMAIN, org_name, repo_name, job_id)
+
     def __init__(self):
         """Create Travis instance."""
-        self.base_url = TRAVIS_URL
+        self.base_url = 'https://api.%' % TRAVIS_DOMAIN
 
     def get_job_log(self, job_id):
         """Retrieve and return log from Travis CI API."""
@@ -49,7 +54,7 @@ class Travis(object):
             return {}
 
         jobs = payload.get('matrix')
-        logs = {}
+        logs = []
 
         for job in jobs:
             config = job.get('config', {})
@@ -57,9 +62,13 @@ class Travis(object):
             for variable in env:
                 if COMMENT_ENV_VAR in variable:
                     job_id = job.get('id')
-                    log = self.get_job_log(job_id)
-                    logs[variable.partition('=')[2]] = log
+                    logs.append({
+                        'job_id': job_id
+                        'title': variable.partition('=')[2],
+                        'data': self.get_job_log(job_id)
+                    })
                     break
+
         return logs
 
     def get_public_key(self):

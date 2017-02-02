@@ -15,8 +15,8 @@ from collections import OrderedDict
 
 def parse_logs(logs):
     """Extract and return relevant info from log."""
-    comments = {}
-    for title, log in logs.iteritems():
+    comments = []
+    for log in logs:
 
         # The log currently duplicates each line in the log.
         # Split the lines, convert to an OrderedDict to remove
@@ -24,7 +24,7 @@ def parse_logs(logs):
         # list.
         # Note: This may incorrectly assume there are no duplications
         #       that we _do_ want.
-        log_lines = list(OrderedDict.fromkeys(log.splitlines()))
+        log_lines = list(OrderedDict.fromkeys(log['data'].splitlines()))
         comment_lines = []
         for line in log_lines:
             if ':check_stability:' in line and 'DEBUG:' not in line:
@@ -42,5 +42,9 @@ def parse_logs(logs):
                               '\n'.join(comment_lines),
                               flags=re.MULTILINE)
 
-        comments[title] = comment_text
+        comments.append({
+            'job_id': log['job_id'],
+            'title': log['title'],
+            'text': comment_text
+        })
     return comments
